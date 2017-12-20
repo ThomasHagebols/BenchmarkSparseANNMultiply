@@ -1,8 +1,7 @@
 import numpy as np
-import sparseBiparteDenseMat
 import timeit
-
-
+import pandas as pd
+import matplotlib.pyplot as plt
 
 def createWeightsMask(noRows, noCols):
     """
@@ -18,71 +17,86 @@ def createWeightsMask(noRows, noCols):
     print (prob,noParameters, noRows*noCols)
     return [noParameters,mask_weights]
 
-def bench_scipy():   
-    setup = """\
-import numpy as np
-from __main__ import createWeightsMask
-from scipy import sparse
-import time
 
-input_size = 200
-output_size = 300
-
-np.random.seed(1)
-input_example = mask_weights = np.random.rand(input_size)
-foo, mask = createWeightsMask(output_size,input_size)
-mask = mask.astype(int)
-neuron_connectivity = mask.sum(axis = 0).astype(np.int)
-foo = np.empty(mask.sum().astype(np.int) + mask.shape[1])
-{}
-print("type:" + str(type(mask)))
-print("memory footprint:" + str(mask.data.nbytes))"""
-    
-    print(timeit.timeit("mask.dot(input_example)", setup=setup))
-    #print(timeit.timeit("mask.dot(input_example)", setup=setup.format("mask = sparse.bsr_matrix(mask)", number = 1000)))
-    #print(timeit.timeit("mask.dot(input_example)", setup=setup.format("mask = sparse.coo_matrix(mask)", number = 1000)))
-    #print(timeit.timeit("mask.dot(input_example)", setup=setup.format("mask = sparse.csc_matrix(mask)", number = 1000)))
-    print(timeit.timeit("mask.dot(input_example)", setup=setup.format("mask = sparse.csr_matrix(mask)")))
-    #print(timeit.timeit("mask.dot(input_example)", setup=setup.format("mask = sparse.dia_matrix(mask)", number = 1000)))
-    #print(timeit.timeit("mask.dot(input_example)", setup=setup.format("mask = sparse.dok_matrix(mask)")))
-    #print(timeit.timeit("mask.dot(input_example)", setup=setup.format("mask = sparse.lil_matrix(mask)")))
-
-
-
-def test_sparseBiparteDenseMat():
-    setup = """\
+def bench_all():
+    setup_naive = """\
 import numpy as np
 from __main__ import createWeightsMask
 import sparseBiparteDenseMat
 from scipy import sparse
 
-input_size = 200
-output_size = 300
-    
+input_size = {}
+output_size = {}
+
+np.random.seed(1)
+input_example = np.random.rand(input_size)
+noParameters, mask = createWeightsMask(output_size,input_size)
+
+print("type:" + str(type(mask)))
+print("memory footprint:" + str(mask.data.nbytes))"""
+
+    setup_scipy = """\
+import numpy as np
+from __main__ import createWeightsMask
+import sparseBiparteDenseMat
+from scipy import sparse
+
+input_size = {}
+output_size = {}
+
+np.random.seed(1)
+input_example = np.random.rand(input_size)
+noParameters, mask = createWeightsMask(output_size,input_size)
+mask = sparse.{}(mask)
+print("type:" + str(type(mask)))
+print("memory footprint:" + str(mask.data.nbytes))"""
+
+    setup_compressed = """\
+import numpy as np
+from __main__ import createWeightsMask
+import sparseBiparteDenseMat
+from scipy import sparse
+
+input_size = {}
+output_size = {}
+
 np.random.seed(1)
 input_example = np.random.rand(input_size)
 noParameters, mask = createWeightsMask(input_size,output_size)
 neuron_connectivity = mask.astype(int).sum(axis = 1).astype(np.int)
-input_ex_tansformed = np.empty(mask.sum().astype(np.int))
-sparse_mask, augmentation = sparseBiparteDenseMat.transform_graph(mask)
-output_sparse = np.zeros(output_size)
-"""
+input_ex_compressed = np.empty(mask.sum().astype(np.int))
+compressed_mask, augmentation = sparseBiparteDenseMat.transform_graph(mask)
+activations_decompressed = np.empty(output_size)
+print('sparse_bupartite')"""
 
     sparseBiparteExperiment = """\
-input_ex_tansformed = sparseBiparteDenseMat.transform_input(input_example, mask, neuron_connectivity, input_ex_tansformed)
-output_dense = np.multiply(np.transpose(input_ex_tansformed), sparse_mask)
-sparseBiparteDenseMat.sparsify_output(output_dense, augmentation, output_size, noParameters, output_sparse)
-"""
+sparseBiparteDenseMat.transform_input(input_example, mask, neuron_connectivity, input_ex_compressed)
+sparseBiparteDenseMat.compressed_multiply(input_ex_compressed, compressed_mask)
+sparseBiparteDenseMat.decompress_output(input_ex_compressed, augmentation, activations_decompressed)"""
 
+    cols = ['naive', 'bsr', 'coo', 'csc', 'csr', 'dia', 'dok', 'lil', 'proposal']
+    experiments = [2, 4, 9, 16, 25, 36, 49, 64, 81, 100, 121, 144, 169, 196, 225, 256, 289, 324, 361, 400, 441, 484, 529, 576, 625, 676, 729, 784, 841, 900, 961, 1024]
+    bench_restult = pd.DataFrame(columns=cols, index = experiments)
+    print(bench_restult.loc[2, 'naive'])
 
-    print("SparseBiparte")
-    print(timeit.timeit(sparseBiparteExperiment, setup=setup))
-    #print("repeat")
-    #print(timeit.timeit("np.repeat(input_example, neuron_connectivity)", setup=setup))
+    for n in experiments:
+        bench_restult.loc[n,'naive'] = timeit.timeit("mask.dot(input_example)", setup=setup_naive.format(n,n))
+        bench_restult.loc[n,'bsr'] = timeit.timeit("mask.dot(input_example)", setup=setup_scipy.format(n,n,"bsr_matrix"))
+        bench_restult.loc[n,'coo'] = timeit.timeit("mask.dot(input_example)", setup=setup_scipy.format(n,n,"coo_matrix"))
+        bench_restult.loc[n,'csc'] = timeit.timeit("mask.dot(input_example)", setup=setup_scipy.format(n,n,"csc_matrix"))
+        bench_restult.loc[n,'csr'] = timeit.timeit("mask.dot(input_example)", setup=setup_scipy.format(n,n,"csr_matrix"))
+        bench_restult.loc[n,'dia'] = timeit.timeit("mask.dot(input_example)", setup=setup_scipy.format(n,n,"dia_matrix"))
+        #bench_restult.loc[n,'dok'] = timeit.timeit("mask.dot(input_example)", setup=setup_scipy.format(n,n,"dok_matrix"))
+        bench_restult.loc[n,'lil'] = timeit.timeit("mask.dot(input_example)", setup=setup_scipy.format(n,n,"lil_matrix"))
+        bench_restult.loc[n,'proposal'] = timeit.timeit(sparseBiparteExperiment, setup=setup_compressed.format(n,n))
 
+    bench_restult.to_csv('benchmark_results.csv')
+    print(bench_restult)
+    bench_restult.plot()
+    plt.legend(loc='best')
+    plt.show()
 
 
 if __name__ == "__main__":
-    test_sparseBiparteDenseMat()
-    bench_scipy()
+    bench_all()
 

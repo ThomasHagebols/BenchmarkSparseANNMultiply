@@ -3,24 +3,32 @@ cimport numpy as np
 cimport cython
 #import time
 
-cpdef sparsify_output(np.ndarray[np.float_t, ndim=1] dense_output, np.ndarray[np.int_t, ndim=1] augmentation, unsigned int output_size, unsigned int noParameters, np.ndarray[np.float_t, ndim=1] output_sparse):
+
+@cython.boundscheck(False)
+cpdef compressed_multiply(np.ndarray[np.float_t, ndim=1] input_ex_tansformed, np.ndarray[np.float_t, ndim=1] sparse_mask):
+    cdef unsigned int i
+
+    for i in range(0,input_ex_tansformed.shape[0]):
+        input_ex_tansformed[i] = <np.float_t>(input_ex_tansformed[i] * sparse_mask[i])
+
+
+@cython.boundscheck(False)
+cpdef decompress_output(np.ndarray[np.float_t, ndim=1] output_compressed, np.ndarray[np.int_t, ndim=1] augmentation, np.ndarray[np.float_t, ndim=1] output_decompressed):
     cdef unsigned int i = 0
     cdef unsigned int j = 0
     cdef float value
 
-
-    for i in range(0, output_size):
-        output_sparse[i] = 0
+    for i in range(0, output_decompressed.shape[0]):
+        output_decompressed[i] = 0
 
     i = 0
-    for i in range(0, noParameters):
+    for i in range(0, output_compressed.shape[0]):
         j = augmentation[i]
-        value = dense_output[i]
-        output_sparse[j] = output_sparse[j] + value
-
-    return output_sparse
+        value = output_compressed[i]
+        output_decompressed[j] = <np.float_t>(output_decompressed[j] + value)
 
 
+@cython.boundscheck(False)
 cpdef transform_graph(np.ndarray[np.float_t, ndim=2] graph):
     cdef unsigned int input_size = graph.shape[0]
     cdef unsigned int output_size = graph.shape[1]
@@ -40,15 +48,13 @@ cpdef transform_graph(np.ndarray[np.float_t, ndim=2] graph):
 
     return transformed_graph, augmentation
 
-
+@cython.boundscheck(False)
 cpdef transform_input(np.ndarray[np.float_t, ndim=1] input_ex, np.ndarray[np.float_t, ndim=2] graph, np.ndarray[np.int_t, ndim=1] neuron_connectivity,  np.ndarray[np.float_t, ndim=1] transformed_input):
-#    t0 = time.time()
     cdef unsigned int input_len = graph.shape[0]
     cdef unsigned int start_index = 0
     cdef unsigned int end_index, index, index_2
     cdef unsigned int x = 0
 
-#    start_index = 0
     for index in range(0, input_len):
         #get indexes
         end_index = <unsigned int>(start_index + neuron_connectivity[index])
@@ -59,15 +65,3 @@ cpdef transform_input(np.ndarray[np.float_t, ndim=1] input_ex, np.ndarray[np.flo
 
         start_index = end_index
         x = <unsigned int>(x + 1)
-        
-    return transformed_input
-        
-#    t4 = time.time()
-#    
-#    print("Hoi")
-#    print(t1 - t0)
-#    print(t2-t1)
-#    print(t3-t2)
-#    print(t4-t3)
-#    time.sleep(1)
-#    
