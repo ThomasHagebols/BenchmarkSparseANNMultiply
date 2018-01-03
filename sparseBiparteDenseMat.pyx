@@ -12,7 +12,7 @@ cpdef compressed_multiply(np.ndarray[np.float_t, ndim=1] input_ex_tansformed, np
         input_ex_tansformed[i] = <np.float_t>(input_ex_tansformed[i] * sparse_mask[i])
 
 @cython.boundscheck(False)
-cpdef single_step_multiply(np.ndarray[np.float_t, ndim=1] input_ex, np.ndarray[np.float_t, ndim=1] compressed_mask, np.ndarray[np.int_t, ndim=1] neuron_connectivity,  np.ndarray[np.float_t, ndim=1] output_compressed):
+cpdef single_step_compressed_multiply(np.ndarray[np.float_t, ndim=1] input_ex, np.ndarray[np.float_t, ndim=1] compressed_mask, np.ndarray[np.int_t, ndim=1] neuron_connectivity,  np.ndarray[np.float_t, ndim=1] output_compressed):
     cdef unsigned int input_len = input_ex.shape[0]
     cdef unsigned int index = 0
     cdef unsigned int input_neuron_nr = 0
@@ -20,6 +20,27 @@ cpdef single_step_multiply(np.ndarray[np.float_t, ndim=1] input_ex, np.ndarray[n
     for input_neuron_nr in range(input_len):
         for c in range(<unsigned int>(neuron_connectivity[input_neuron_nr])):
             output_compressed[index] = <np.float_t>(input_ex[input_neuron_nr] * compressed_mask[index])
+            index = <unsigned int>(index + 1)
+
+
+@cython.boundscheck(False)
+cpdef single_step_multiply(np.ndarray[np.float_t, ndim=1] input_ex, np.ndarray[np.float_t, ndim=1] compressed_mask,
+                           np.ndarray[np.int_t, ndim=1] neuron_connectivity, np.ndarray[np.float_t, ndim=1] output_decompressed,
+                           np.ndarray[np.int_t, ndim=1] augmentation):
+    cdef unsigned int input_len = input_ex.shape[0]
+    cdef unsigned int index = 0
+    cdef unsigned int input_neuron_nr, c
+    cdef unsigned int j = 0
+    cdef float value
+
+    for i in range(0, output_decompressed.shape[0]):
+        output_decompressed[i] = 0
+
+    for input_neuron_nr in range(input_len):
+        for c in range(<unsigned int>(neuron_connectivity[input_neuron_nr])):
+            value = <np.float_t>(input_ex[input_neuron_nr] * compressed_mask[index])
+            j = augmentation[index]
+            output_decompressed[j] = <np.float_t>(output_decompressed[j] + value)
             index = <unsigned int>(index + 1)
 
 

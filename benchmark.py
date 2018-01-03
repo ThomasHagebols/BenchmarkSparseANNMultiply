@@ -80,27 +80,30 @@ sparseBiparteDenseMat.decompress_output(input_ex_compressed, augmentation, activ
 print(activations_decompressed)"""
 
     sparseBiparteExperiment2 = """\
-sparseBiparteDenseMat.single_step_multiply(input_example, compressed_mask, neuron_connectivity, input_ex_compressed)
-sparseBiparteDenseMat.decompress_output(input_ex_compressed, augmentation, activations_decompressed)
-print(activations_decompressed)"""
+sparseBiparteDenseMat.single_step_compressed_multiply(input_example, compressed_mask, neuron_connectivity, input_ex_compressed)
+sparseBiparteDenseMat.decompress_output(input_ex_compressed, augmentation, activations_decompressed)"""
 
-    cols = ['naive', 'bsr', 'coo', 'csc', 'csr', 'dia', 'dok', 'lil', 'proposal', 'proposal2']
+    sparseBiparteExperiment3 = """\
+sparseBiparteDenseMat.single_step_multiply(input_example, compressed_mask, neuron_connectivity, activations_decompressed, augmentation)"""
+
+    cols = ['naive', 'bsr', 'coo', 'csc', 'csr', 'dia', 'dok', 'lil', 'proposal', 'proposal2', 'proposal3']
     experiments = [4, 16, 36, 64, 100, 144, 196, 256, 324, 400, 484, 576, 676, 784, 900, 1024, 1156, 1296, 1444, 1600, 1764, 1936, 2116, 2304, 2500, 2704, 2916, 3136, 3364, 3600, 3844, 4096, 4356, 4624, 4900, 5184, 5476, 5776, 6084, 6400, 6724, 7056, 7396, 7744, 8100, 8464, 8836, 9216, 9604, 10000]
-    experiments = [3]
+    experiments = [10000]
     bench_restult = pd.DataFrame(columns=cols, index = experiments)
 
     for n in experiments:
         print("Current experiment:", n)
-        bench_restult.loc[n,'naive'] = timeit.timeit("mask.dot(input_example)", setup=setup_naive.format(n,n+1))
+        #bench_restult.loc[n,'naive'] = timeit.timeit("mask.dot(input_example)", setup=setup_naive.format(n,n+1))
         #bench_restult.loc[n,'bsr'] = timeit.timeit("mask.dot(input_example)", setup=setup_scipy.format(n,n+1,"bsr_matrix"))
-        #bench_restult.loc[n,'coo'] = timeit.timeit("mask.dot(input_example)", setup=setup_scipy.format(n,n+1,"coo_matrix"))
+        bench_restult.loc[n,'coo'] = timeit.timeit("mask.dot(input_example)", setup=setup_scipy.format(n,n+1,"coo_matrix"))
         #bench_restult.loc[n,'csc'] = timeit.timeit("mask.dot(input_example)", setup=setup_scipy.format(n,n+1,"csc_matrix"))
         #bench_restult.loc[n,'csr'] = timeit.timeit("mask.dot(input_example)", setup=setup_scipy.format(n,n+1,"csr_matrix"))
         #bench_restult.loc[n,'dia'] = timeit.timeit("mask.dot(input_example)", setup=setup_scipy.format(n,n,"dia_matrix"))
         #bench_restult.loc[n,'dok'] = timeit.timeit("mask.dot(input_example)", setup=setup_scipy.format(n,n+1,"dok_matrix"))
         #bench_restult.loc[n,'lil'] = timeit.timeit("mask.dot(input_example)", setup=setup_scipy.format(n,n,"lil_matrix"))
-        bench_restult.loc[n,'proposal'] = timeit.timeit(sparseBiparteExperiment, setup=setup_compressed.format(n,n+1))
+        #bench_restult.loc[n,'proposal'] = timeit.timeit(sparseBiparteExperiment, setup=setup_compressed.format(n,n+1))
         bench_restult.loc[n,'proposal2'] = timeit.timeit(sparseBiparteExperiment2, setup=setup_compressed.format(n,n+1))
+        bench_restult.loc[n,'proposal3'] = timeit.timeit(sparseBiparteExperiment3, setup=setup_compressed.format(n, n + 1))
 
 
     bench_restult.to_csv('benchmark_results.csv')
